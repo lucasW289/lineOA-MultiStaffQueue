@@ -1,31 +1,34 @@
 import Queue from "../models/queueModel";
 import Staff from "../models/staffModel";
 
+// Queue Status type definition
+type QueueStatus = "waiting" | "in-progress" | "served" | "cancelled";
+
+// Helper function for local date
+const getLocalDate = () => {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+};
+
 // Function to book a queue for a user with a specific staff member
 export const bookQueue = async (userId: string, staffId: string) => {
-  const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+  const today = getLocalDate();
 
-  // Check if the staff exists
   const staff = await Staff.findById(staffId);
-  if (!staff) {
-    throw new Error("Staff not found.");
-  }
+  if (!staff) throw new Error("Staff not found.");
 
-  // Check if the user already has an ongoing queue with any staff for today
   const existingQueue = await Queue.findOne({
     userId,
     date: today,
     status: { $in: ["waiting", "in-progress"] },
   });
-  if (existingQueue) {
-    throw new Error("You already have a booking for today.");
-  }
+  if (existingQueue) throw new Error("You already have a booking for today.");
 
-  // Calculate the current queue position for the selected staff
   const queuePosition =
-    (await Queue.countDocuments({ staffId, date: today })) + 1; // Get the current queue position for the staff
+    (await Queue.countDocuments({ staffId, date: today })) + 1;
 
-  // Create a new queue entry
   const newQueue = new Queue({
     userId,
     staffId,
@@ -33,7 +36,6 @@ export const bookQueue = async (userId: string, staffId: string) => {
     date: today,
   });
 
-  // Save the new queue entry
   await newQueue.save();
 
   return {
@@ -44,7 +46,7 @@ export const bookQueue = async (userId: string, staffId: string) => {
 
 // Function to cancel today's queue for a user
 export const cancelQueue = async (userId: string) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDate();
 
   const queue = await Queue.findOneAndUpdate(
     {
@@ -56,12 +58,12 @@ export const cancelQueue = async (userId: string) => {
     { new: true }
   );
 
-  return queue; // null if not found
+  return queue;
 };
 
 // Get queue status for a user
 export const getQueueStatus = async (userId: string) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDate();
 
   const userQueue = await Queue.findOne({
     userId,
@@ -69,39 +71,24 @@ export const getQueueStatus = async (userId: string) => {
     status: { $in: ["waiting", "in-progress"] },
   }).populate("staffId");
 
-  if (
-    !userQueue ||
-    !userQueue.staffId ||
-    typeof userQueue.staffId === "string"
-  ) {
-    return null;
-  }
+  if (!userQueue?.staffId || typeof userQueue.staffId === "string") return null;
 
   const staff = userQueue.staffId as typeof Staff.prototype;
-  const staffId = staff._id;
-
-  // Get all queues for that staff today (any status), ordered by creation
   const allQueues = await Queue.find({
-    staffId,
+    staffId: staff._id,
     date: today,
   }).sort({ _id: 1 });
 
   const yourIndex = allQueues.findIndex(
     (q) => q._id.toString() === userQueue._id.toString()
   );
-
-  const yourPosition = yourIndex + 1;
-
   const currentInProgress = allQueues.find((q) => q.status === "in-progress");
 
-  // ✅ Count how many people are in line before the user
-  const peopleAhead = allQueues
-    .slice(0, yourIndex)
-    .filter((q) => ["waiting", "in-progress"].includes(q.status)).length;
-
   return {
-    yourPosition,
-    peopleAhead,
+    yourPosition: yourIndex + 1,
+    peopleAhead: allQueues
+      .slice(0, yourIndex)
+      .filter((q) => ["waiting", "in-progress"].includes(q.status)).length,
     staffName: staff.name,
     currentQueueNumber: currentInProgress
       ? allQueues.findIndex(
@@ -111,28 +98,44 @@ export const getQueueStatus = async (userId: string) => {
   };
 };
 
+// Get active queues for a specific staff
 export const getActiveQueuesForStaff = async (staffId: string) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDate();
 
-  // Step 1: Get all queues for today for this staff (any status)
   const allQueues = await Queue.find({
     staffId,
     date: today,
   })
-    .sort({ createdAt: 1 }) // Maintain booking order
+    .sort({ createdAt: 1 })
     .populate("userId");
 
-  // Step 2: Assign queueNumber based on creation order
   const allQueuesWithPosition = allQueues.map((q, index) => ({
     ...q.toObject(),
     queueNumber: index + 1,
   }));
 
-  // Step 3: Filter only active queues
   const activeQueues = allQueuesWithPosition.filter(
     (q) => !["cancelled", "served"].includes(q.status)
   );
 
-  // ✅ Now each active queue has its correct historical queueNumber
   return activeQueues;
+};
+
+// Update the status of a queue
+export const updateQueueStatus = async (
+  queueId: string,
+  newStatus: QueueStatus
+) => {
+  const queue = await Queue.findById(queueId);
+  if (!queue) return null;
+
+  queue.status = newStatus;
+  await queue.save();
+
+  const updatedQueues = await getActiveQueuesForStaff(queue.staffId.toString());
+  const updatedQueueWithNumber = updatedQueues.find(
+    (q) => q._id.toString() === queueId
+  );
+
+  return updatedQueueWithNumber || queue;
 };

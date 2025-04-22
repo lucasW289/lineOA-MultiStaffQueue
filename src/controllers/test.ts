@@ -16,88 +16,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
     if (!event || !event.type) continue;
 
     const replyToken = event.replyToken;
-    const userId = event.source.userId;
-
-    // Helper function for admin queue management
-    const sendQueueManagementFlex = async (
-      staffId: string,
-      replyToken: string
-    ) => {
-      const queues = await getActiveQueuesForStaff(staffId);
-
-      if (queues.length === 0) {
-        await replyText(userId, "📭 No active queues remaining.");
-        return;
-      }
-
-      const bubbles = queues.map((queue, index) => ({
-        type: "bubble",
-        size: "kilo",
-        body: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "text",
-              text: `#${queue.queueNumber}`,
-              weight: "bold",
-              size: "xl",
-              margin: "md",
-              color: "#1DB446",
-            },
-            {
-              type: "text",
-              text: `User ID: ${queue.userId}`,
-              size: "sm",
-              margin: "md",
-              wrap: true,
-            },
-            {
-              type: "text",
-              text: `Status: ${queue.status}`,
-              size: "sm",
-              margin: "md",
-              color: "#888888",
-            },
-          ],
-        },
-        footer:
-          index === 0
-            ? {
-                type: "box",
-                layout: "horizontal",
-                spacing: "sm",
-                contents: [
-                  {
-                    type: "button",
-                    style: "primary",
-                    height: "sm",
-                    action: {
-                      type: "message",
-                      label: "Mark In Progress",
-                      text: `admin in-progress ${queue._id} ${staffId}`,
-                    },
-                  },
-                  {
-                    type: "button",
-                    style: "secondary",
-                    height: "sm",
-                    action: {
-                      type: "message",
-                      label: "Mark Served",
-                      text: `admin served ${queue._id} ${staffId}`,
-                    },
-                  },
-                ],
-              }
-            : undefined,
-      }));
-
-      await replyFlexMessage(replyToken, {
-        type: "carousel",
-        contents: bubbles,
-      });
-    };
 
     // Handle "Join a Queue"
     if (
@@ -155,7 +73,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
       };
 
       await replyFlexMessage(replyToken, flexContent);
-      continue; // ... (existing Join a Queue implementation remains the same)
+      continue;
     }
 
     // Handle Booking
@@ -362,12 +280,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
       continue;
     }
 
-    // Admin Access
+    //Rich Menu 3
     if (
       event.type === "message" &&
       event.message.type === "text" &&
       event.message.text === "Admin Access"
     ) {
+      const userId = event.source.userId;
+      console.log("I am here");
       await replyText(
         userId,
         "🔒 Please enter the admin passcode starting with &&:"
@@ -381,10 +301,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
       event.message.type === "text" &&
       event.message.text.startsWith("&&")
     ) {
-      const passcode = event.message.text.slice(2);
+      const userId = event.source.userId;
+      const passcode = event.message.text.slice(2); // remove '&&'
 
       if (passcode === "Admin123") {
         const staffList = await getAllStaff();
+
         const bubbles = staffList.map((staff) => ({
           type: "bubble",
           size: "kilo",
@@ -431,76 +353,186 @@ export const handleWebhook = async (req: Request, res: Response) => {
           userId,
           "✅ Welcome Admin! Please choose a staff to manage."
         );
-        await replyFlexMessage(replyToken, {
+        await replyFlexMessage(event.replyToken, {
           type: "carousel",
           contents: bubbles,
         });
       } else {
         await replyText(userId, "❌ Invalid passcode. Try again.");
       }
+
       continue;
     }
-
-    // Handle Manage Queue for Staff
+    //Admin Managing Queue
     if (
       event.type === "message" &&
       event.message.type === "text" &&
       event.message.text.startsWith("Manage Queue for ")
     ) {
       const staffName = event.message.text.replace("Manage Queue for ", "");
+      const userId = event.source.userId;
+
       const staffList = await getAllStaff();
       const staff = staffList.find((s) => s.name === staffName);
 
       if (!staff) {
-        await replyText(userId, "❌ Staff not found");
+        await replyText(userId, "❌ Staff not found.");
         continue;
       }
 
+      // ✅ Add this line
       await replyText(userId, `🛠 Managing Queue for ${staff.name}`);
-      await sendQueueManagementFlex(staff._id.toString(), replyToken);
-      continue;
-    }
-
-    // Handle Admin In-Progress
-    if (
-      event.type === "message" &&
-      event.message.type === "text" &&
-      event.message.text.startsWith("admin in-progress ")
-    ) {
-      const [, , queueId, staffId] = event.message.text.split(" ");
-
-      try {
-        const updated = await updateQueueStatus(queueId, "in-progress");
-        if (updated) {
-          await replyText(userId, "🔄 Queue marked as In Progress");
-          await sendQueueManagementFlex(staffId, replyToken);
+      // Shared logic to refresh Flex Message
+      const sendUpdatedQueueFlex = async (
+        userId: string,
+        staffId: string,
+        replyToken: string
+      ) => {
+        const queues = await getActiveQueuesForStaff(staffId);
+        if (queues.length === 0) {
+          await replyText(userId, `📭 No active queues remaining.`);
+          return;
         }
-      } catch (error) {
-        console.error("Update Progress Error:", error);
-        await replyText(userId, "⚠️ Error updating queue status");
-      }
-      continue;
-    }
 
-    // Handle Admin Served
-    if (
-      event.type === "message" &&
-      event.message.type === "text" &&
-      event.message.text.startsWith("admin served ")
-    ) {
-      const [, , queueId, staffId] = event.message.text.split(" ");
+        const bubbles = queues.map((queue, index) => ({
+          type: "bubble",
+          size: "kilo",
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: `#${queue.queueNumber}`,
+                weight: "bold",
+                size: "xl",
+                margin: "md",
+                color: "#1DB446",
+              },
+              {
+                type: "text",
+                text: `User ID: ${queue.userId}`,
+                size: "sm",
+                margin: "md",
+                wrap: true,
+              },
+              {
+                type: "text",
+                text: `Status: ${queue.status}`,
+                size: "sm",
+                margin: "md",
+                color: "#888888",
+              },
+            ],
+          },
+          footer:
+            index === 0
+              ? {
+                  type: "box",
+                  layout: "horizontal",
+                  spacing: "sm",
+                  contents: [
+                    {
+                      type: "button",
+                      style: "primary",
+                      height: "sm",
+                      action: {
+                        type: "message",
+                        label: "admin in-progress",
+                        text: `admin in-progress ${queue._id}`,
+                      },
+                    },
+                    {
+                      type: "button",
+                      style: "secondary",
+                      height: "sm",
+                      action: {
+                        type: "message",
+                        label: "Served",
+                        text: `admin served ${queue._id}`,
+                      },
+                    },
+                  ],
+                }
+              : undefined,
+        }));
+        console.log("Sending Flex message with buttons...");
 
-      try {
-        const updated = await updateQueueStatus(queueId, "served");
-        if (updated) {
-          await replyText(userId, "✅ Queue marked as Served");
-          await sendQueueManagementFlex(staffId, replyToken);
+        await replyFlexMessage(replyToken, {
+          type: "carousel",
+          contents: bubbles,
+        });
+      };
+      console.log(event.message.text);
+      // Display the initial Flex message with active queues for the selected staff
+      await sendUpdatedQueueFlex(
+        userId,
+        staff._id.toString(),
+        event.replyToken
+      );
+
+      console.log(event.message.text); // Admin sets to in-progress
+
+      // Admin sets to in-progress
+      if (
+        event.type === "message" &&
+        event.message.type === "text" &&
+        event.message.text.startsWith("admin in-progress ")
+      ) {
+        const queueId = event.message.text
+          .replace("admin in-progress ", "")
+          .trim();
+        const userId = event.source.userId;
+
+        try {
+          const updated = await updateQueueStatus(queueId, "in-progress");
+
+          if (updated) {
+            await replyText(userId, `🔄 Queue marked as "In Progress".`);
+            await sendUpdatedQueueFlex(
+              userId,
+              updated.staffId.toString(),
+              event.replyToken
+            );
+          } else {
+            await replyText(userId, "❌ Failed to update queue status.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          await replyText(userId, "⚠️ Error updating queue.");
         }
-      } catch (error) {
-        console.error("Update Served Error:", error);
-        await replyText(userId, "⚠️ Error updating queue status");
+
+        continue;
       }
-      continue;
+
+      // Admin sets to served
+      if (
+        event.type === "message" &&
+        event.message.type === "text" &&
+        event.message.text.startsWith("admin served ")
+      ) {
+        const queueId = event.message.text.replace("admin served ", "").trim();
+        const userId = event.source.userId;
+        try {
+          const updated = await updateQueueStatus(queueId, "served");
+
+          if (updated) {
+            await replyText(userId, `✅ Queue marked as "Served".`);
+            await sendUpdatedQueueFlex(
+              userId,
+              updated.staffId.toString(),
+              event.replyToken
+            );
+          } else {
+            await replyText(userId, "❌ Failed to update queue status.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          await replyText(userId, "⚠️ Error updating queue.");
+        }
+
+        continue;
+      }
     }
   }
 

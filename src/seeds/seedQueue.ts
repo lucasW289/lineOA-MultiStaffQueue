@@ -5,7 +5,7 @@ import Queue from "../models/queueModel";
 dotenv.config();
 
 const mongoUri = process.env.MONGO_URI!;
-const baseTime = new Date("2025-04-22T08:00:00.000Z");
+const baseTime = new Date("2025-04-23T08:00:00.000Z");
 
 function minutesLater(start: Date, minutes: number): Date {
   return new Date(start.getTime() + minutes * 60000);
@@ -17,7 +17,7 @@ const staffIds = {
   charlie: new mongoose.Types.ObjectId("6806f4d4e5bc7551a4e3fdf9"),
 };
 
-const today = "2025-04-22";
+const today = "2025-04-23";
 
 let currentTime = new Date(baseTime); // Start time
 
