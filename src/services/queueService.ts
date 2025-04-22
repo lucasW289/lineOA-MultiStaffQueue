@@ -41,3 +41,20 @@ export const bookQueue = async (userId: string, staffId: string) => {
     staffName: staff.name,
   };
 };
+
+// Function to cancel today's queue for a user
+export const cancelQueue = async (userId: string) => {
+  const today = new Date().toISOString().split("T")[0];
+  console.log("I am here");
+  const queue = await Queue.findOneAndUpdate(
+    {
+      userId,
+      date: today,
+      status: { $in: ["waiting", "in-progress"] },
+    },
+    { status: "cancelled", updatedAt: new Date() },
+    { new: true }
+  );
+
+  return userId; // null if not found
+};
