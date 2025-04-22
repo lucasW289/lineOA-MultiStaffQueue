@@ -80,22 +80,28 @@ export const getQueueStatus = async (userId: string) => {
   const staff = userQueue.staffId as typeof Staff.prototype;
   const staffId = staff._id;
 
-  // ✅ Get all queues for that staff today (any status), ordered by creation
+  // Get all queues for that staff today (any status), ordered by creation
   const allQueues = await Queue.find({
     staffId,
     date: today,
   }).sort({ _id: 1 });
 
-  // ✅ Your position is your index in full queue list
-  const yourPosition =
-    allQueues.findIndex((q) => q._id.toString() === userQueue._id.toString()) +
-    1;
+  const yourIndex = allQueues.findIndex(
+    (q) => q._id.toString() === userQueue._id.toString()
+  );
 
-  // ✅ Find the current in-progress queue
+  const yourPosition = yourIndex + 1;
+
   const currentInProgress = allQueues.find((q) => q.status === "in-progress");
+
+  // ✅ Count how many people are in line before the user
+  const peopleAhead = allQueues
+    .slice(0, yourIndex)
+    .filter((q) => ["waiting", "in-progress"].includes(q.status)).length;
 
   return {
     yourPosition,
+    peopleAhead,
     staffName: staff.name,
     currentQueueNumber: currentInProgress
       ? allQueues.findIndex(

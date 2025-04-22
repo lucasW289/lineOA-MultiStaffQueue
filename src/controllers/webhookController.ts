@@ -251,9 +251,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
                     },
                     {
                       type: "text",
+                      text: `People Ahead of You in Queue: ${status.peopleAhead}`,
+                      margin: "sm",
+                    },
+                    {
+                      type: "text",
                       text: status.currentQueueNumber
                         ? `Currently Serving: #${status.currentQueueNumber}`
-                        : "No one ahead. You'll be called soon!",
+                        : "There is currently no one in the meeting room with staff",
                       margin: "sm",
                       wrap: true,
                     },
