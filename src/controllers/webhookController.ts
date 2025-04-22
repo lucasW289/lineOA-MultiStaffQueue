@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { replyFlexMessage, replyText } from "../services/lineService";
 import { getAllStaff } from "../services/staffService";
-import { bookQueue, cancelQueue } from "../services/queueService";
+import {
+  bookQueue,
+  cancelQueue,
+  getQueueStatus,
+} from "../services/queueService";
 
 export const handleWebhook = async (req: Request, res: Response) => {
   const events = req.body.events;
@@ -123,7 +127,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
       event.message.type === "text" &&
       event.message.text === "Cancel My Queue"
     ) {
-      console.log("I am hererere");
       const userId = event.source.userId;
 
       try {
@@ -149,6 +152,40 @@ export const handleWebhook = async (req: Request, res: Response) => {
       }
 
       continue;
+    }
+
+    //Checking Queue
+    if (
+      event.type === "message" &&
+      event.message.type === "text" &&
+      event.message.text === "View My Queue"
+    ) {
+      const userId = event.source.userId;
+      console.log("I am here");
+
+      try {
+        const status = await getQueueStatus(userId);
+
+        if (!status) {
+          await replyText(
+            userId,
+            "You don't have any active queues right now."
+          );
+        } else {
+          const message =
+            `📋 Queue Status for ${status.staffName}:\n` +
+            `Your queue number: ${status.yourPosition}\n` +
+            (status.currentQueueNumber
+              ? `Currently serving: #${status.currentQueueNumber}`
+              : `There is no one to be served before you. Please wait for your number to be called up`);
+          await replyText(userId, message);
+        }
+      } catch (error) {
+        await replyText(
+          userId,
+          "Something went wrong while fetching your queue status."
+        );
+      }
     }
   }
 

@@ -45,7 +45,7 @@ export const bookQueue = async (userId: string, staffId: string) => {
 // Function to cancel today's queue for a user
 export const cancelQueue = async (userId: string) => {
   const today = new Date().toISOString().split("T")[0];
-  console.log("I am here");
+
   const queue = await Queue.findOneAndUpdate(
     {
       userId,
@@ -56,5 +56,51 @@ export const cancelQueue = async (userId: string) => {
     { new: true }
   );
 
-  return userId; // null if not found
+  return queue; // null if not found
+};
+
+// Get queue status for a user
+export const getQueueStatus = async (userId: string) => {
+  const today = new Date().toISOString().split("T")[0];
+
+  const userQueue = await Queue.findOne({
+    userId,
+    date: today,
+    status: { $in: ["waiting", "in-progress"] },
+  }).populate("staffId");
+
+  if (
+    !userQueue ||
+    !userQueue.staffId ||
+    typeof userQueue.staffId === "string"
+  ) {
+    return null;
+  }
+
+  const staff = userQueue.staffId as typeof Staff.prototype;
+  const staffId = staff._id;
+
+  // ✅ Get all queues for that staff today (any status), ordered by creation
+  const allQueues = await Queue.find({
+    staffId,
+    date: today,
+  }).sort({ _id: 1 });
+
+  // ✅ Your position is your index in full queue list
+  const yourPosition =
+    allQueues.findIndex((q) => q._id.toString() === userQueue._id.toString()) +
+    1;
+
+  // ✅ Find the current in-progress queue
+  const currentInProgress = allQueues.find((q) => q.status === "in-progress");
+
+  return {
+    yourPosition,
+    staffName: staff.name,
+    currentQueueNumber: currentInProgress
+      ? allQueues.findIndex(
+          (q) => q._id.toString() === currentInProgress._id.toString()
+        ) + 1
+      : null,
+  };
 };
