@@ -15,7 +15,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
     const replyToken = event.replyToken;
 
-    // Handle "book_queue" trigger
+    // Handle "Join a Queue"
     if (
       event.type === "message" &&
       event.message.type === "text" &&
@@ -74,7 +74,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
       continue;
     }
 
-    // Handle booking
+    // Handle Booking
     if (
       event.type === "message" &&
       event.message.type === "text" &&
@@ -97,8 +97,38 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const result = await bookQueue(userId, staffMember._id.toString());
 
         if (result) {
-          const message = `You have successfully booked the queue with ${staffName}. Your queue number is ${result.queueNumber}.`;
-          await replyText(userId, message);
+          await replyFlexMessage(replyToken, {
+            type: "carousel",
+            contents: [
+              {
+                type: "bubble",
+                body: {
+                  type: "box",
+                  layout: "vertical",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "🎉 Booking Confirmed!",
+                      weight: "bold",
+                      size: "lg",
+                      color: "#1DB446",
+                    },
+                    {
+                      type: "text",
+                      text: `Staff: ${staffName}`,
+                      margin: "md",
+                    },
+                    {
+                      type: "text",
+                      text: `Your Queue No: ${result.queueNumber}`,
+                      margin: "sm",
+                      weight: "bold",
+                    },
+                  ],
+                },
+              },
+            ],
+          });
         } else {
           await replyText(
             userId,
@@ -121,7 +151,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
       continue;
     }
 
-    // Handle cancel request
+    // Handle Cancel
     if (
       event.type === "message" &&
       event.message.type === "text" &&
@@ -133,10 +163,32 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const cancelled = await cancelQueue(userId);
 
         if (cancelled) {
-          await replyText(
-            userId,
-            "Your queue has been cancelled successfully."
-          );
+          await replyFlexMessage(replyToken, {
+            type: "carousel",
+            contents: [
+              {
+                type: "bubble",
+                body: {
+                  type: "box",
+                  layout: "vertical",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "🚫 Queue Cancelled",
+                      weight: "bold",
+                      size: "lg",
+                      color: "#FF3B30",
+                    },
+                    {
+                      type: "text",
+                      text: "Your queue has been cancelled successfully.",
+                      margin: "md",
+                    },
+                  ],
+                },
+              },
+            ],
+          });
         } else {
           await replyText(
             userId,
@@ -154,14 +206,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
       continue;
     }
 
-    //Checking Queue
+    // Handle Queue Status
     if (
       event.type === "message" &&
       event.message.type === "text" &&
       event.message.text === "View My Queue"
     ) {
       const userId = event.source.userId;
-      console.log("I am here");
 
       try {
         const status = await getQueueStatus(userId);
@@ -172,15 +223,48 @@ export const handleWebhook = async (req: Request, res: Response) => {
             "You don't have any active queues right now."
           );
         } else {
-          const message =
-            `📋 Queue Status for ${status.staffName}:\n` +
-            `Your queue number: ${status.yourPosition}\n` +
-            (status.currentQueueNumber
-              ? `Currently serving: #${status.currentQueueNumber}`
-              : `There is no one to be served before you. Please wait for your number to be called up`);
-          await replyText(userId, message);
+          await replyFlexMessage(replyToken, {
+            type: "carousel",
+            contents: [
+              {
+                type: "bubble",
+                body: {
+                  type: "box",
+                  layout: "vertical",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "📋 Your Queue Status",
+                      weight: "bold",
+                      size: "lg",
+                      color: "#0066FF",
+                    },
+                    {
+                      type: "text",
+                      text: `Staff: ${status.staffName}`,
+                      margin: "md",
+                    },
+                    {
+                      type: "text",
+                      text: `Your Queue No: ${status.yourPosition}`,
+                      margin: "sm",
+                    },
+                    {
+                      type: "text",
+                      text: status.currentQueueNumber
+                        ? `Currently Serving: #${status.currentQueueNumber}`
+                        : "No one ahead. You'll be called soon!",
+                      margin: "sm",
+                      wrap: true,
+                    },
+                  ],
+                },
+              },
+            ],
+          });
         }
       } catch (error) {
+        console.error("Queue Status Error:", error);
         await replyText(
           userId,
           "Something went wrong while fetching your queue status."
