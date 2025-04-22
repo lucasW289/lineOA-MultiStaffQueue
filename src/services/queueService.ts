@@ -110,3 +110,29 @@ export const getQueueStatus = async (userId: string) => {
       : null,
   };
 };
+
+export const getActiveQueuesForStaff = async (staffId: string) => {
+  const today = new Date().toISOString().split("T")[0];
+
+  // Step 1: Get all queues for today for this staff (any status)
+  const allQueues = await Queue.find({
+    staffId,
+    date: today,
+  })
+    .sort({ createdAt: 1 }) // Maintain booking order
+    .populate("userId");
+
+  // Step 2: Assign queueNumber based on creation order
+  const allQueuesWithPosition = allQueues.map((q, index) => ({
+    ...q.toObject(),
+    queueNumber: index + 1,
+  }));
+
+  // Step 3: Filter only active queues
+  const activeQueues = allQueuesWithPosition.filter(
+    (q) => !["cancelled", "served"].includes(q.status)
+  );
+
+  // ✅ Now each active queue has its correct historical queueNumber
+  return activeQueues;
+};

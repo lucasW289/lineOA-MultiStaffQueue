@@ -4,6 +4,7 @@ import { getAllStaff } from "../services/staffService";
 import {
   bookQueue,
   cancelQueue,
+  getActiveQueuesForStaff,
   getQueueStatus,
 } from "../services/queueService";
 
@@ -275,6 +276,187 @@ export const handleWebhook = async (req: Request, res: Response) => {
           "Something went wrong while fetching your queue status."
         );
       }
+      continue;
+    }
+
+    //Rich Menu 3
+    if (
+      event.type === "message" &&
+      event.message.type === "text" &&
+      event.message.text === "Admin Access"
+    ) {
+      const userId = event.source.userId;
+      console.log("I am here");
+      await replyText(
+        userId,
+        "🔒 Please enter the admin passcode starting with &&:"
+      );
+      continue;
+    }
+
+    // Handle Admin Passcode
+    if (
+      event.type === "message" &&
+      event.message.type === "text" &&
+      event.message.text.startsWith("&&")
+    ) {
+      const userId = event.source.userId;
+      const passcode = event.message.text.slice(2); // remove '&&'
+
+      if (passcode === "Admin123") {
+        const staffList = await getAllStaff();
+
+        const bubbles = staffList.map((staff) => ({
+          type: "bubble",
+          size: "kilo",
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: `🧑‍💼 ${staff.name}`,
+                weight: "bold",
+                size: "lg",
+                margin: "md",
+              },
+              {
+                type: "text",
+                text: `Role: ${staff.role}`,
+                size: "sm",
+                color: "#888888",
+                margin: "md",
+              },
+            ],
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "Manage Queue",
+                  text: `Manage Queue for ${staff.name}`,
+                },
+              },
+            ],
+          },
+        }));
+
+        await replyText(
+          userId,
+          "✅ Welcome Admin! Please choose a staff to manage."
+        );
+        await replyFlexMessage(event.replyToken, {
+          type: "carousel",
+          contents: bubbles,
+        });
+      } else {
+        await replyText(userId, "❌ Invalid passcode. Try again.");
+      }
+
+      continue;
+    }
+    //Admin Managing Queue
+    if (
+      event.type === "message" &&
+      event.message.type === "text" &&
+      event.message.text.startsWith("Manage Queue for ")
+    ) {
+      const staffName = event.message.text.replace("Manage Queue for ", "");
+      const userId = event.source.userId;
+
+      const staffList = await getAllStaff();
+      const staff = staffList.find((s) => s.name === staffName);
+
+      if (!staff) {
+        await replyText(userId, "❌ Staff not found.");
+        continue;
+      }
+
+      // ✅ Add this line
+      await replyText(userId, `🛠 Managing Queue for ${staff.name}`);
+      const queues = await getActiveQueuesForStaff(staff._id.toString());
+
+      if (queues.length === 0) {
+        await replyText(userId, `📭 No active queues for ${staff.name}.`);
+        continue;
+      }
+
+      const bubbles = queues.map((queue, index) => ({
+        type: "bubble",
+        size: "kilo",
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: `#${queue.queueNumber}`, // Use queueNumber from the service
+              weight: "bold",
+              size: "xl",
+              margin: "md",
+              color: "#1DB446",
+            },
+            {
+              type: "text",
+              text: `User ID: ${queue.userId}`, // Display the user ID
+              size: "sm",
+              margin: "md",
+              wrap: true,
+            },
+            {
+              type: "text",
+              text: `Status: ${queue.status}`, // Display the status
+              size: "sm",
+              margin: "md",
+              color: "#888888",
+            },
+          ],
+        },
+        footer:
+          index === 0
+            ? {
+                type: "box",
+                layout: "horizontal",
+                spacing: "sm",
+                contents: [
+                  {
+                    type: "button",
+                    style: "primary",
+                    height: "sm",
+                    action: {
+                      type: "message",
+                      label: "In Progress",
+                      text: `admin in-progress ${queue._id}`,
+                    },
+                  },
+                  {
+                    type: "button",
+                    style: "secondary",
+                    height: "sm",
+                    action: {
+                      type: "message",
+                      label: "Served",
+                      text: `admin served ${queue._id}`,
+                    },
+                  },
+                ],
+              }
+            : undefined,
+      }));
+
+      await replyFlexMessage(event.replyToken, {
+        type: "carousel",
+        contents: bubbles,
+      });
+
+      continue;
     }
   }
 
