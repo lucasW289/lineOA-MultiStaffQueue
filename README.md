@@ -1,15 +1,17 @@
 # LINE Queue Booking System
 
 ## Project Overview
-This project implements a **queue booking system** using the **LINE Official Account (OA)**. The system allows users to book a queue, and admins can manage and monitor the queue through the LINE Rich Menu interface. It is connected to a backend powered by **Node.js/Express** and uses **MongoDB** for data storage.
+This project implements a **queue booking system** using the **LINE Official Account (OA)**. The system allows users to book a queue, and admins can manage and monitor the queue through the LINE Rich Menu interface. It is connected to a backend powered by **Node.js/Express** and uses **MongoDB** for data storage. Store Queue for all days. Booking and Manage queue of only **Today**.
 
 ## Features
 - **User Side**: 
   - Book a queue via LINE chat.
-  - Receive updates and notifications about queue status.
+  - View Queue
+  - Cancel Queue
+  - With Background checks
 
 - **Admin Side**:
-  - Secure admin login with passcode verification.
+   admin login with passcode verification.
   - Manage queues (e.g., mark a queue as "in progress" or "served").
   - Assign staff members to specific queues.
   - Real-time updates to the queue status through LINE Flex Messages.
