@@ -3,6 +3,8 @@
 ## Project Overview
 This project implements a **queue booking system** using the **LINE Official Account (OA)**. The system allows users to book a queue, and admins can manage and monitor the queue through the LINE Rich Menu interface. It is connected to a backend powered by **Node.js/Express** and uses **MongoDB** for data storage. Store Queue for all days. Booking and Manage queue of only **Today**.
 
+**Admin access Key = &&Admin123***
+
 ## Features
 - **User Side**: 
   - Book a queue via LINE chat.
@@ -35,8 +37,9 @@ Since the backend for the system is deployed on **Render.com's Free Tier account
 2. Wait for **30-60 seconds** (Render.com is starting the server).
 3. After waiting, you can now use the **Rich Menu** to book your queue.
 
-## Installation
+## Screenshots
+### LINE Rich Menu
+![Rich Menu](https://drive.google.com/uc?id=1VLI3LascGqvGUL8XcASGQ01X69JgSlg8)
 
-### 1. Clone the Repository:
-```bash
-git clone https://github.com/your-username/line-queue-booking-system.git
+### Queue Status (Admin Side)
+![Queue Management](https://drive.google.com/uc?id=10e9psbHFVOCY3uHNC0imAET18gznOT_K)
